@@ -1381,7 +1381,13 @@ async def cdp_ws_proxy(websocket: WebSocket) -> None:
     if query_items:
         upstream_url = f"{upstream_url}?{_urlencode(query_items)}"
     try:
-        upstream = await websockets.connect(upstream_url, open_timeout=5)
+        upstream = await websockets.connect(
+            upstream_url,
+            open_timeout=5,
+            max_size=None,        # CDP screencast frames exceed the 1MB default → 1009 close
+            ping_interval=None,   # let the CDP endpoints manage liveness; avoids spurious ping timeouts
+            close_timeout=5,
+        )
     except (asyncio.TimeoutError, OSError, websockets.exceptions.WebSocketException) as e:
         print(f"[cdp-ws-proxy] upstream connect failed for /devtools/{path}: {e!r}", flush=True)
         await websocket.close(code=1011)

@@ -1279,12 +1279,17 @@ def _rewrite_cdp_payload(obj, ws_base, public_host, token):
             kind, ident = m.group(1), m.group(2)
             proxied_path = f"/devtools/{kind}/{ident}"
             out["webSocketDebuggerUrl"] = f"{ws_base}{proxied_path}?auth={token}"
-            frontend = str(out.get("devtoolsFrontendUrl") or "")
-            if frontend and "?" in frontend:
-                wss_target = f"{public_host}{proxied_path}?auth={token}"
-                encoded = _url_quote(wss_target, safe="")
-                base = frontend.split("?", 1)[0]
-                out["devtoolsFrontendUrl"] = f"{base}?wss={encoded}"
+            # Serve Chrome's OWN bundled inspector through our same-origin
+            # authenticated proxy instead of the hosted appspot frontend.
+            # The appspot frontend + Railway edge combo drops the WS reliably;
+            # same-origin /browser/devtools/inspector.html is stable.
+            scheme = "wss" if ws_base.startswith("wss") else "ws"
+            wss_target = f"{public_host}{proxied_path}?auth={token}"
+            front = (
+                f"/browser/devtools/inspector.html"
+                f"?{scheme}={_url_quote(wss_target, safe='')}"
+            )
+            out["devtoolsFrontendUrl"] = front
         return out
     if isinstance(obj, list):
         return [rewrite_item(x) for x in obj]

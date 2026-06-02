@@ -943,6 +943,76 @@ async def page_index(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
 
+async def page_agent_os(request: Request):
+    if err := guard(request): return err
+    return templates.TemplateResponse(request, "agent_os.html")
+
+
+def _count_matching(path: Path, pattern: str) -> int:
+    if not path.exists():
+        return 0
+    try:
+        return sum(1 for _ in path.rglob(pattern))
+    except Exception:
+        return 0
+
+
+def _sample_vault_notes(vault: Path, limit: int = 8) -> list[dict[str, str]]:
+    if not vault.exists():
+        return []
+    try:
+        notes = sorted(vault.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+    except Exception:
+        return []
+    out = []
+    for note in notes:
+        try:
+            rel = str(note.relative_to(vault))
+        except ValueError:
+            rel = str(note)
+        out.append({"name": note.stem, "path": rel})
+    return out
+
+
+async def api_agent_os_status(request: Request):
+    if err := guard(request): return err
+    env = read_env(ENV_FILE)
+    hermes_home = Path(HERMES_HOME)
+    workspace = hermes_home / "workspace"
+    vault_raw = env.get("OBSIDIAN_VAULT_PATH") or os.environ.get("OBSIDIAN_VAULT_PATH") or ""
+    vault = Path(vault_raw).expanduser() if vault_raw else Path.home() / "Documents" / "Obsidian Vault"
+
+    model_info = {"default": env.get("LLM_MODEL", ""), "provider": ""}
+    config_path = hermes_home / "config.yaml"
+    if config_path.exists():
+        try:
+            import yaml
+            cfg = yaml.safe_load(config_path.read_text()) or {}
+            if isinstance(cfg, dict) and isinstance(cfg.get("model"), dict):
+                model_info["default"] = cfg["model"].get("default") or model_info["default"]
+                model_info["provider"] = cfg["model"].get("provider") or ""
+        except Exception:
+            pass
+
+    return JSONResponse({
+        "gateway": gw.status(),
+        "model": model_info,
+        "paths": {
+            "hermes_home": str(hermes_home),
+            "workspace": str(workspace),
+            "obsidian_vault": str(vault) if vault.exists() else "",
+        },
+        "counts": {
+            "sessions": _count_matching(hermes_home / "sessions", "*.jsonl"),
+            "cron_jobs": _count_matching(hermes_home / "cron", "*.json"),
+            "workspace_files": _count_matching(workspace, "*"),
+            "vault_notes": _count_matching(vault, "*.md") if vault.exists() else 0,
+        },
+        "vault_samples": _sample_vault_notes(vault),
+        "recent_logs": list(gw.logs)[-8:],
+    })
+
+
 async def route_health(request: Request):
     return JSONResponse({"status": "ok", "gateway": gw.state})
 
@@ -1611,6 +1681,12 @@ routes = [
     # Our setup wizard + management API, all under /setup/* (cookie-auth guarded).
     Route("/setup",                             page_index),
     Route("/setup/",                            page_index),
+
+    # Agent OS cockpit — a lightweight mission-control layer inspired by agentos.guide.
+    Route("/agent-os",                          page_agent_os,       methods=["GET"]),
+    Route("/agent-os/",                         page_agent_os,       methods=["GET"]),
+    Route("/agent-os/api/status",               api_agent_os_status, methods=["GET"]),
+
     Route("/setup/api/config",                  api_config_get,      methods=["GET"]),
     Route("/setup/api/config",                  api_config_put,      methods=["PUT"]),
     Route("/setup/api/status",                  api_status),

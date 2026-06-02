@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Agent OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15101a;--bg2:#1c1622;--card:#251d2c;--elev:#2e2436;--cream:#f3ebda;--muted:#a59783;--gold:#d4a574;--gold2:#e6c69a;--emerald:#5ab896;--plum:#c4607e;--rust:#c97c5e;--line:rgba(212,165,116,.2);--soft:rgba(243,235,218,.08)}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(ellipse 65% 45% at 12% 6%,rgba(212,165,116,.12),transparent 60%),radial-gradient(ellipse 55% 40% at 88% 22%,rgba(201,124,94,.10),transparent 60%),var(--bg);color:var(--cream);font-family:Manrope,system-ui,sans-serif;min-height:100vh}
+a{color:inherit}.shell{display:grid;grid-template-columns:280px 1fr;min-height:100vh}.side{border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(37,29,44,.94),rgba(21,16,26,.96));padding:22px;position:sticky;top:0;height:100vh;overflow:auto}.brand{font-family:'Bricolage Grotesque';font-size:24px;font-weight:800;letter-spacing:-.03em;display:flex;gap:10px;align-items:center}.orb{width:14px;height:14px;border-radius:50%;background:var(--gold);box-shadow:0 0 28px var(--gold)}.tag{font-family:'JetBrains Mono';font-size:11px;color:var(--muted);margin-top:6px}.nav{margin-top:26px;display:grid;gap:8px}.nav a,.agent{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid var(--soft);border-radius:12px;background:rgba(46,36,54,.45);text-decoration:none;color:var(--cream);font-size:14px}.nav a.active{border-color:var(--gold);background:rgba(212,165,116,.12)}.section-label{font-family:'JetBrains Mono';font-size:10px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin:24px 0 9px}.agent small{color:var(--muted);font-family:'JetBrains Mono';display:block}.status{width:8px;height:8px;border-radius:50%;background:var(--muted)}.status.on{background:var(--emerald);box-shadow:0 0 16px var(--emerald)}.main{padding:28px;overflow:auto}.hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:20px}.eyebrow{font-family:'JetBrains Mono';font-size:11px;color:var(--gold2);letter-spacing:.16em;text-transform:uppercase}.h1{font-family:'Bricolage Grotesque';font-size:48px;line-height:1;letter-spacing:-.04em;margin:8px 0}.sub{color:#ddd0bb;max-width:760px;line-height:1.7}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:rgba(37,29,44,.9);color:var(--cream);padding:10px 13px;border-radius:999px;font-family:'JetBrains Mono';font-size:12px;text-decoration:none}.btn.primary{background:var(--gold);color:#15101a;border-color:var(--gold);font-weight:700}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card{background:linear-gradient(180deg,rgba(37,29,44,.92),rgba(28,22,34,.92));border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden}.metric{padding:17px}.metric b{font-family:'Bricolage Grotesque';font-size:34px;display:block}.metric span{font-family:'JetBrains Mono';color:var(--muted);font-size:11px}.layout{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}.card h2{margin:0;padding:16px 18px;border-bottom:1px solid var(--soft);font-family:'JetBrains Mono';font-size:13px;color:var(--gold2);letter-spacing:.08em;text-transform:uppercase}.body{padding:18px}.mission{display:grid;gap:12px}.mission-item{padding:14px;border:1px solid var(--soft);border-radius:14px;background:rgba(46,36,54,.46)}.mission-item b{display:block}.mission-item p{margin:6px 0 0;color:#ddd0bb;font-size:13px}.pill{display:inline-flex;gap:7px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:4px 8px;font-family:'JetBrains Mono';font-size:10px;color:var(--muted);margin-top:9px}.workspace{min-height:360px;border:1px solid var(--soft);border-radius:16px;background:#120e16;padding:14px}.preview{height:230px;border-radius:12px;background:linear-gradient(135deg,rgba(90,184,150,.16),rgba(196,96,126,.12)),repeating-linear-gradient(0deg,rgba(255,255,255,.03),rgba(255,255,255,.03) 1px,transparent 1px,transparent 28px);border:1px solid var(--soft);display:flex;align-items:center;justify-content:center;text-align:center;color:#ddd0bb}.console{font-family:'JetBrains Mono';font-size:12px;line-height:1.7;color:#ddd0bb;white-space:pre-wrap}.kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.col{background:rgba(21,16,26,.5);border:1px solid var(--soft);border-radius:14px;padding:10px;min-height:260px}.col h3{margin:0 0 10px;font-family:'JetBrains Mono';font-size:11px;color:var(--muted)}.task{background:rgba(37,29,44,.85);border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:9px;font-size:13px}.task small{display:block;color:var(--muted);margin-top:6px;font-family:'JetBrains Mono'}.vault-list{display:grid;gap:9px}.note{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--soft);padding:9px 0}.note span{color:#ddd0bb}.note code{color:var(--muted);font-size:11px}.footer{margin:18px 0;color:var(--muted);font-size:12px;font-family:'JetBrains Mono'}
+@media(max-width:1050px){.shell{grid-template-columns:1fr}.side{position:relative;height:auto}.grid{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}.kanban{grid-template-columns:1fr}.h1{font-size:38px}}@media(max-width:620px){.grid{grid-template-columns:1fr}.hero{display:block}.main{padding:18px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><span class="orb"></span> Hermes OS</div>
+    <div class="tag">one messenger · one operating system</div>
+    <nav class="nav">
+      <a class="active" href="#mission">Mission Control <span>⌘</span></a>
+      <a href="#workspace">Workspace Preview <span>↗</span></a>
+      <a href="#kanban">Named Agents <span>▦</span></a>
+      <a href="#vault">Obsidian Memory <span>◇</span></a>
+      <a href="/" target="_blank">Native Hermes Dashboard <span>→</span></a>
+      <a href="/browser" target="_blank">Browser DevTools <span>→</span></a>
+      <a href="/setup">Setup <span>→</span></a>
+    </nav>
+    <div class="section-label">Agent Fleet</div>
+    <div id="agents">
+      <div class="agent"><div><b>Hermes</b><small>gateway + router</small></div><span class="status" id="gw-dot"></span></div>
+      <div class="agent"><div><b>Oracle</b><small>research / RAG</small></div><span class="status on"></span></div>
+      <div class="agent"><div><b>Scout</b><small>news + opportunities</small></div><span class="status on"></span></div>
+      <div class="agent"><div><b>Builder</b><small>Claude Code worker</small></div><span class="status on"></span></div>
+      <div class="agent"><div><b>Agentmail</b><small>inbox triage</small></div><span class="status"></span></div>
+    </div>
+  </aside>
+  <main class="main">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Agent OS dashboard</div>
+        <div class="h1">Workspace, memory, agents, and output preview in one cockpit.</div>
+        <p class="sub">This page turns the Hermes Railway admin into a lightweight Agent OS layer: named agents, Obsidian vault awareness, persistent Hermes status, workspace preview links, and a kanban-style operating board.</p>
+      </div>
+      <div class="actions">
+        <a class="btn primary" href="/" target="_blank">Open Hermes</a>
+        <a class="btn" href="/setup">Configure</a>
+        <a class="btn" href="/browser" target="_blank">Browser</a>
+      </div>
+    </section>
+
+    <section class="grid" id="mission">
+      <div class="card metric"><b id="gateway-state">--</b><span>gateway state</span></div>
+      <div class="card metric"><b id="session-count">--</b><span>saved sessions</span></div>
+      <div class="card metric"><b id="cron-count">--</b><span>cron jobs</span></div>
+      <div class="card metric"><b id="vault-count">--</b><span>vault notes</span></div>
+    </section>
+
+    <section class="layout">
+      <div class="card"><h2>Operating missions</h2><div class="body mission">
+        <div class="mission-item"><b>Daily command center</b><p>Use Hermes to pull meetings, messages, tasks and Obsidian context into one morning briefing.</p><span class="pill">Hermes + Granola + Obsidian</span></div>
+        <div class="mission-item"><b>Named-agent execution</b><p>Assign clear jobs: Scout finds opportunities, Oracle researches, Builder uses Claude Code, Agentmail triages comms.</p><span class="pill">Kanban + skills + cron</span></div>
+        <div class="mission-item"><b>Workspace preview</b><p>Everything agents generate lands in the workspace and can be opened or downloaded without digging through the server.</p><span class="pill">/data/.hermes/workspace</span></div>
+      </div></div>
+      <div class="card"><h2>Live status</h2><div class="body"><pre class="console" id="console">Loading Hermes OS status...</pre></div></div>
+    </section>
+
+    <section class="layout" id="workspace">
+      <div class="card"><h2>Workspace preview</h2><div class="body workspace"><div class="preview"><div><b>Agent outputs render here</b><br>HTML prototypes, PDFs, images, videos, reports, and generated Excalidraw files.</div></div><p class="footer" id="workspace-path"></p></div></div>
+      <div class="card" id="vault"><h2>Obsidian memory layer</h2><div class="body"><div class="vault-list" id="vault-list"></div></div></div>
+    </section>
+
+    <section class="card" id="kanban" style="margin-top:14px"><h2>Named-agent kanban</h2><div class="body kanban">
+      <div class="col"><h3>QUEUE</h3><div class="task">Create daily Zaio operating brief<small>Hermes</small></div><div class="task">Sweep AI/content opportunities<small>Scout</small></div></div>
+      <div class="col"><h3>ACTIVE</h3><div class="task">Build Agent OS dashboard shell<small>Builder / Claude</small></div><div class="task">Maintain TikTok Ads browser session<small>Hermes cron</small></div></div>
+      <div class="col"><h3>SHIPPED</h3><div class="task">Secure Railway admin + CDP proxy<small>Hermes</small></div><div class="task">Daily Hermes GitHub backup<small>cron</small></div></div>
+    </div></section>
+  </main>
+</div>
+<script>
+async function loadStatus(){
+  const res = await fetch('/agent-os/api/status');
+  if(!res.ok) throw new Error('status '+res.status);
+  const d = await res.json();
+  const gw = d.gateway?.state || 'unknown';
+  document.getElementById('gateway-state').textContent = gw;
+  document.getElementById('gw-dot').classList.toggle('on', gw === 'running');
+  document.getElementById('session-count').textContent = d.counts?.sessions ?? 0;
+  document.getElementById('cron-count').textContent = d.counts?.cron_jobs ?? 0;
+  document.getElementById('vault-count').textContent = d.counts?.vault_notes ?? 0;
+  document.getElementById('workspace-path').textContent = 'Workspace: ' + (d.paths?.workspace || 'not found');
+  const lines = [
+    'Gateway: '+gw,
+    'Model: '+(d.model?.default || 'not set'),
+    'Provider: '+(d.model?.provider || 'auto/unknown'),
+    'Obsidian vault: '+(d.paths?.obsidian_vault || 'set OBSIDIAN_VAULT_PATH'),
+    'Hermes home: '+(d.paths?.hermes_home || ''),
+    'Recent logs:',
+    ...(d.recent_logs || []).slice(-5).map(x=>'  '+x)
+  ];
+  document.getElementById('console').textContent = lines.join('\n');
+  const list = document.getElementById('vault-list');
+  list.innerHTML = '';
+  (d.vault_samples || []).forEach(n => {
+    const row = document.createElement('div'); row.className='note';
+    row.innerHTML = '<span>'+escapeHtml(n.name)+'</span><code>'+escapeHtml(n.path)+'</code>';
+    list.appendChild(row);
+  });
+  if(!(d.vault_samples||[]).length){list.innerHTML='<div class="note"><span>No vault notes found yet</span><code>configure OBSIDIAN_VAULT_PATH</code></div>'}
+}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+loadStatus().catch(e => {document.getElementById('console').textContent='Could not load Agent OS status: '+e.message});
+setInterval(loadStatus, 30000);
+</script>
+</body>
+</html>

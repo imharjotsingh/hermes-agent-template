@@ -67,6 +67,12 @@ HERMES_DASHBOARD_HOST = "127.0.0.1"
 HERMES_DASHBOARD_PORT = int(os.environ.get("HERMES_DASHBOARD_PORT", "9119"))
 HERMES_DASHBOARD_URL = f"http://{HERMES_DASHBOARD_HOST}:{HERMES_DASHBOARD_PORT}"
 
+# Chrome DevTools Protocol (CDP) browser — keep Chrome itself on loopback and
+# expose it only through authenticated /browser/* routes below.
+CHROME_CDP_HOST = os.environ.get("CHROME_CDP_HOST", "127.0.0.1")
+CHROME_CDP_PORT = int(os.environ.get("CHROME_CDP_PORT", "9222"))
+CHROME_CDP_URL = f"http://{CHROME_CDP_HOST}:{CHROME_CDP_PORT}"
+
 # Mirror dashboard-ref-only/auth_proxy.py: strip only `host` (httpx sets it)
 # and `transfer-encoding` (httpx recomputes it from the body). Keep everything
 # else — notably `authorization`, because the SPA uses Bearer tokens against
@@ -583,7 +589,7 @@ def unmask(new: dict[str, str], existing: dict[str, str]) -> dict[str, str]:
 # change via Railway → redeploy → all existing cookies invalidate → users re-login.
 import hashlib as _hashlib
 import hmac as _hmac
-from urllib.parse import quote as _url_quote, urlparse as _urlparse
+from urllib.parse import quote as _url_quote, urlparse as _urlparse, parse_qsl as _parse_qsl, urlencode as _urlencode
 
 COOKIE_NAME = "hermes_auth"
 COOKIE_MAX_AGE = 7 * 86400  # 7 days
@@ -613,6 +619,23 @@ def _verify_auth_token(token: str) -> bool:
 
 def _is_authenticated(request: Request) -> bool:
     return _verify_auth_token(request.cookies.get(COOKIE_NAME, ""))
+
+
+def _make_cdp_access_token() -> str:
+    expires = str(int(time.time()) + 3600)
+    sig = _hmac.new(COOKIE_SECRET, f"cdp:{expires}".encode(), _hashlib.sha256).hexdigest()
+    return f"{expires}.{sig}"
+
+
+def _verify_cdp_access_token(token: str) -> bool:
+    try:
+        expires_s, sig = token.rsplit(".", 1)
+        if int(expires_s) < time.time():
+            return False
+        expected = _hmac.new(COOKIE_SECRET, f"cdp:{expires_s}".encode(), _hashlib.sha256).hexdigest()
+        return _hmac.compare_digest(sig, expected)
+    except Exception:
+        return False
 
 
 def _safe_return_to(value: str) -> str:
@@ -1238,6 +1261,149 @@ async def route_proxy(request: Request) -> Response:
     return await _proxy_to_dashboard(request)
 
 
+async def _external_ws_base(request: Request) -> str:
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0]
+    ws_proto = "wss" if proto == "https" else "ws"
+    return f"{ws_proto}://{host}/browser"
+
+
+def _rewrite_cdp_payload(obj, ws_base, public_host, token):
+    def rewrite_item(item):
+        if not isinstance(item, dict):
+            return item
+        out = dict(item)
+        ws_url = str(out.get("webSocketDebuggerUrl") or "")
+        m = re.search(r"/devtools/(browser|page)/([^/?#]+)", ws_url)
+        if m:
+            kind, ident = m.group(1), m.group(2)
+            proxied_path = f"/devtools/{kind}/{ident}"
+            out["webSocketDebuggerUrl"] = f"{ws_base}{proxied_path}?auth={token}"
+            frontend = str(out.get("devtoolsFrontendUrl") or "")
+            if frontend and "?" in frontend:
+                wss_target = f"{public_host}{proxied_path}?auth={token}"
+                encoded = _url_quote(wss_target, safe="")
+                base = frontend.split("?", 1)[0]
+                out["devtoolsFrontendUrl"] = f"{base}?wss={encoded}"
+        return out
+    if isinstance(obj, list):
+        return [rewrite_item(x) for x in obj]
+    if isinstance(obj, dict):
+        return rewrite_item(obj)
+    return obj
+
+
+async def route_browser_index(request: Request) -> Response:
+    if err := guard(request): return err
+    client = get_http_client()
+    token = _make_cdp_access_token()
+    ws_base = await _external_ws_base(request)
+    public_host = ws_base.removeprefix("ws://").removeprefix("wss://")
+    try:
+        upstream = await client.get(f"{CHROME_CDP_URL}/json/list")
+        upstream.raise_for_status()
+        targets = _rewrite_cdp_payload(upstream.json(), ws_base, public_host, token)
+    except Exception as e:
+        return HTMLResponse(
+            f"<h1>Chrome browser unavailable</h1><p>Could not reach {CHROME_CDP_URL}: {_html_escape(str(e))}</p>",
+            status_code=503,
+        )
+    rows = []
+    for t in targets if isinstance(targets, list) else []:
+        title = _html_escape(str(t.get("title") or t.get("id") or "Untitled"))
+        url = _html_escape(str(t.get("url") or ""))
+        frontend = _html_escape(str(t.get("devtoolsFrontendUrl") or ""))
+        rows.append(
+            f'<li><a href="{frontend}" target="_blank" rel="noopener">Open DevTools</a>'
+            f'<div><strong>{title}</strong></div><small>{url}</small></li>'
+        )
+    body = "".join(rows) or "<li>No browser targets found.</li>"
+    return HTMLResponse(f"""<!doctype html>
+<html><head><title>Hermes Browser</title><style>
+body{{background:#0d0f14;color:#c9d1d9;font-family:ui-monospace,Menlo,monospace;padding:32px}}
+a{{color:#7b8fff}} li{{margin:18px 0;padding:14px;border:1px solid #252d3d;border-radius:8px;list-style:none}}
+small{{color:#6b7688;word-break:break-all}}
+</style></head><body>
+<h1>Hermes Browser</h1>
+<p>Protected by your Hermes admin login. DevTools links use a 1-hour signed token.</p>
+<ul>{body}</ul>
+<p>Raw CDP JSON: <a href="/browser/json/version">version</a> &middot; <a href="/browser/json/list">targets</a></p>
+<p><a href="/setup">&larr; Setup</a> &middot; <a href="/logout">Sign out</a></p>
+</body></html>""")
+
+
+async def route_browser_proxy(request: Request) -> Response:
+    if err := guard(request): return err
+    path = request.path_params.get("path", "")
+    if not path:
+        return await route_browser_index(request)
+    client = get_http_client()
+    target = f"{CHROME_CDP_URL}/{path}"
+    if request.url.query:
+        target = f"{target}?{request.url.query}"
+    body = await request.body()
+    req_headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP_BY_HOP}
+    try:
+        upstream = await client.request(request.method, target, headers=req_headers, content=body)
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        return JSONResponse({"error": "Chrome CDP unavailable"}, status_code=503)
+    resp_headers = {
+        k: v for k, v in upstream.headers.items()
+        if k.lower() not in HOP_BY_HOP and k.lower() not in ("content-encoding", "content-length")
+    }
+    content = upstream.content
+    ctype = upstream.headers.get("content-type", "").lower()
+    if "application/json" in ctype:
+        try:
+            token = _make_cdp_access_token()
+            ws_base = await _external_ws_base(request)
+            public_host = ws_base.removeprefix("ws://").removeprefix("wss://")
+            content = json.dumps(_rewrite_cdp_payload(upstream.json(), ws_base, public_host, token), indent=2).encode()
+            resp_headers["content-type"] = "application/json"
+        except Exception:
+            pass
+    return Response(content=content, status_code=upstream.status_code, headers=resp_headers)
+
+
+async def cdp_ws_proxy(websocket: WebSocket) -> None:
+    token = websocket.query_params.get("auth", "")
+    if not (_is_authenticated(websocket) or _verify_cdp_access_token(token)):
+        await websocket.close(code=4401)
+        return
+    path = websocket.path_params.get("path", "")
+    query_items = [(k, v) for k, v in _parse_qsl(websocket.url.query, keep_blank_values=True) if k != "auth"]
+    upstream_url = f"ws://{CHROME_CDP_HOST}:{CHROME_CDP_PORT}/devtools/{path}"
+    if query_items:
+        upstream_url = f"{upstream_url}?{_urlencode(query_items)}"
+    try:
+        upstream = await websockets.connect(upstream_url, open_timeout=5)
+    except (asyncio.TimeoutError, OSError, websockets.exceptions.WebSocketException) as e:
+        print(f"[cdp-ws-proxy] upstream connect failed for /devtools/{path}: {e!r}", flush=True)
+        await websocket.close(code=1011)
+        return
+    await websocket.accept()
+    pump_in = asyncio.create_task(_ws_pump_client_to_upstream(websocket, upstream))
+    pump_out = asyncio.create_task(_ws_pump_upstream_to_client(upstream, websocket))
+    try:
+        done, pending = await asyncio.wait((pump_in, pump_out), return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+    finally:
+        try:
+            await upstream.close()
+        except Exception:
+            pass
+        if websocket.client_state == WebSocketState.CONNECTED:
+            try:
+                await websocket.close()
+            except Exception:
+                pass
+
+
 async def route_setup_404(request: Request) -> Response:
     """Typos under /setup/* should 404 here — not fall through to the proxy."""
     if err := guard(request): return err
@@ -1450,6 +1616,12 @@ routes = [
     Route("/setup/api/oauth/xai/start",         api_oauth_xai_start,  methods=["POST"]),
     Route("/setup/api/oauth/xai/status",        api_oauth_xai_status),
     Route("/setup/api/oauth/xai",               api_oauth_xai_delete, methods=["DELETE"]),
+
+    # Protected Chrome/CDP access (added by railway_browser_patch.py).
+    Route("/browser",                           route_browser_index,  methods=["GET"]),
+    Route("/browser/",                          route_browser_index,  methods=["GET"]),
+    Route("/browser/{path:path}",               route_browser_proxy,  methods=ANY_METHOD),
+    WebSocketRoute("/browser/devtools/{path:path}", cdp_ws_proxy),
 
     # /setup/* typos return a real 404 — not a silent proxy fallthrough.
     Route("/setup/{path:path}",                 route_setup_404,     methods=ANY_METHOD),

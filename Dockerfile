@@ -27,6 +27,23 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
     rm -rf /var/lib/apt/lists/*
 
+# Chromium for headless/CDP browser automation (e.g. the TikTok Ads profile
+# driven over 127.0.0.1:9222). Installed from Debian's repo so the binary
+# lands on PATH at /usr/bin/chromium and survives every Railway redeploy —
+# previously Chromium was installed by hand into the running container and was
+# wiped on each rebuild. Xvfb provides a virtual display for non-headless mode;
+# the font + nss/atk/gtk libs are Chromium's runtime dependencies on slim.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        chromium xvfb \
+        procps \
+        fonts-liberation fonts-noto-color-emoji \
+        libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+        libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
+        libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 \
+        libatspi2.0-0 libgtk-3-0 && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install hermes-agent (provides the `hermes` CLI) and pre-build its React
 # dashboard so `hermes dashboard` has nothing to build at runtime.
 #

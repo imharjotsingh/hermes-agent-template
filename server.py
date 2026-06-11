@@ -617,38 +617,8 @@ def _verify_auth_token(token: str) -> bool:
         return False
 
 
-def _is_authenticated(request) -> bool:
+def _is_authenticated(request: Request) -> bool:
     return _verify_auth_token(request.cookies.get(COOKIE_NAME, ""))
-
-
-def _dashboard_session_token() -> str:
-    """Return the pinned native Hermes dashboard token, if configured.
-
-    The desktop app authenticates to a remote backend with Hermes's own
-    HERMES_DASHBOARD_SESSION_TOKEN. Our Railway wrapper adds a cookie-login
-    guard in front of the native dashboard, so desktop clients cannot obtain
-    that cookie. Accept the same pinned token at the wrapper edge and then
-    proxy through to the loopback dashboard, preserving the original token for
-    upstream Hermes to validate as well.
-    """
-    return os.environ.get("HERMES_DASHBOARD_SESSION_TOKEN") or read_env(ENV_FILE).get("HERMES_DASHBOARD_SESSION_TOKEN", "")
-
-
-def _request_dashboard_token(request) -> str:
-    """Extract a dashboard token from common desktop/API locations."""
-    token = request.query_params.get("token", "") or request.query_params.get("session_token", "")
-    if token:
-        return token
-    auth = request.headers.get("authorization", "")
-    if auth.lower().startswith("bearer "):
-        return auth[7:].strip()
-    return request.headers.get("x-hermes-session-token", "")
-
-
-def _is_dashboard_token_authenticated(request) -> bool:
-    expected = _dashboard_session_token()
-    supplied = _request_dashboard_token(request)
-    return bool(expected and supplied and _hmac.compare_digest(supplied, expected))
 
 
 def _make_cdp_access_token() -> str:
@@ -685,7 +655,7 @@ def guard(request: Request) -> Response | None:
     - HTML navigation: 302 to /login?returnTo=<path>
     - API / XHR: 401 JSON (so the SPA's fetch() can surface it cleanly)
     """
-    if _is_authenticated(request) or _is_dashboard_token_authenticated(request):
+    if _is_authenticated(request):
         return None
     accept = request.headers.get("accept", "").lower()
     wants_html = "text/html" in accept
@@ -1638,7 +1608,7 @@ async def ws_proxy(websocket: WebSocket) -> None:
          exits, etc.), cancel the other task and close both sockets
     """
     # 1. Edge auth.
-    if not (_is_authenticated(websocket) or _is_dashboard_token_authenticated(websocket)):
+    if not _is_authenticated(websocket):
         # Close before accept — browser sees the handshake fail (expected
         # for unauthenticated calls).
         await websocket.close(code=4401)
